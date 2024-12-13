@@ -5,73 +5,83 @@ import os
 import cv2
 
 
-def train_digits():
+def train_digit_classifier():
     """
-    Train a Linear Support Vector Classifier (SVC) model on a dataset of digits images using
-    Histogram of Oriented Gradients (HOG) features.
-
-    The images are stored in a folder structure where each subfolder corresponds to a digit class
-    and contains images of that digit. The model is saved as 'hog_model_digits.npy'.
+    Trains a Linear SVC classifier on a dataset of digit images using HOG features.
     """
-    images = []
-    labels = []
+    hog_features = []
+    digit_labels = []
 
-    # Get all the image folder paths
-    image_paths = os.listdir("./digits_dataset")
+    # Get all folder paths containing digit images
+    dataset_paths = os.listdir("./digitsDataSet")
 
-    for path in image_paths:
-        # Get all the image names
-        all_images = os.listdir(f"./digits_dataset/{path}")
+    for digit_folder in dataset_paths:
+        # Get all image file names in the folder
+        image_files = os.listdir(f"./digitsDataSet/{digit_folder}")
 
-        # Iterate over the image names, get the label
-        for image in all_images:
-            image_path = f"./digits_dataset/{path}/{image}"
+        # Iterate over the image files and extract their labels
+        for image_file in image_files:
+            image_path = f"./digitsDataSet/{digit_folder}/{image_file}"
             image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
             image = cv2.resize(image, (28, 28))
 
-            # Get the HOG descriptor for the image
-            hog_desc = hog(image, orientations=9, pixels_per_cell=(8, 8),
-                           cells_per_block=(2, 2), transform_sqrt=True, block_norm='L2-Hys')
+            # Compute the HOG descriptor for the image
+            hog_descriptor = hog(
+                image,
+                orientations=9,
+                pixels_per_cell=(8, 8),
+                cells_per_block=(2, 2),
+                transform_sqrt=True,
+                block_norm='L2-Hys'
+            )
 
-            # Update the data and labels
-            images.append(hog_desc)
-            labels.append(path)
+            # Update feature list and labels
+            hog_features.append(hog_descriptor)
+            digit_labels.append(digit_folder)
 
-    # Train Linear SVC
-    print('Training on training images...')
-    svm_model = LinearSVC(random_state=42, tol=1e-5)
-    svm_model.fit(images, labels)
+    # Train the Linear SVC model
+    print('Training the digit classifier...')
+    digit_classifier = LinearSVC(random_state=42, tol=1e-5)
+    digit_classifier.fit(hog_features, digit_labels)
 
-    # Save the model
-    joblib.dump(svm_model, "hog_model_digits.npy")
+    # Save the trained model
+    joblib.dump(digit_classifier, "hog_digit_classifier_model.npy")
 
 
-def get_prediction(image):
+def predict_digit(image):
     """
-    Predict the label of a digit image using the pre-trained LinearSVC model with HOG features.
+    Predicts the digit in a given image using the pre-trained Linear SVC model.
 
-    Parameters:
-    - image: A grayscale image (as a numpy array) of a digit to be classified.
+    Args:
+        image (numpy.ndarray): Input image containing a digit.
 
     Returns:
-    - The predicted label of the digit as a string.
+        str: Predicted digit label as a string.
     """
-    model_filename = "hog_model_digits.npy"
-
-    # Check if the model exists
-    if not os.path.exists(model_filename):
-        print("Model not found. Training the model...")
-        train_digits()  # Train the model if it does not exist
-        print("Model trained successfully.")
+    model_path = "hog_digit_classifier_model.npy"
 
     # Load the pre-trained model
-    hog_model = joblib.load("hog_model_digits.npy")
+    digit_classifier = joblib.load(model_path)
 
+    # Preprocess the input image
     resized_image = cv2.resize(image, (28, 28))
-    # Get the HOG descriptor for the test image
-    hog_desc, hog_image = hog(resized_image, orientations=9, pixels_per_cell=(8, 8),
-                              cells_per_block=(2, 2), transform_sqrt=True, block_norm='L2-Hys', visualize=True)
-    # Prediction
-    pred = hog_model.predict(hog_desc.reshape(1, -1))[0]
 
-    return pred.title()
+    # Compute the HOG descriptor for the input image
+    hog_descriptor = hog(
+        resized_image,
+        orientations=9,
+        pixels_per_cell=(8, 8),
+        cells_per_block=(2, 2),
+        transform_sqrt=True,
+        block_norm='L2-Hys',
+        visualize=False
+    )
+
+    # Predict the label for the input image
+    predicted_label = digit_classifier.predict(hog_descriptor.reshape(1, -1))[0]
+
+    return predicted_label.title()
+
+
+# Uncomment to train the model
+train_digit_classifier()

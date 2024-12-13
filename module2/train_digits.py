@@ -84,4 +84,4 @@ def predict_digit(image):
 
 
 # Uncomment to train the model
-train_digit_classifier()
+# train_digit_classifier()

@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
 from imutils import contours as imcnts
-from pape_extraction import *
-from bubble_sheet_correction import *
-from train_digits import *
+from .pape_extraction import *
+from .bubble_sheet_correction import *
+from .train_digits import *
 
 
 # Function to segment and extract individual digits from a given binary code image
@@ -22,7 +22,7 @@ def segment_id(code):
         cv2.boundingRect(cnt) for cnt in contours if cv2.contourArea(cnt) > 100
     ]
     bounding_rectangles.sort(key=lambda x: x[0])  # Sort by x-coordinate
-    digits = [code[y:y + h, x:x + w] for x, y, w, h in bounding_rectangles]
+    digits = [code[y : y + h, x : x + w] for x, y, w, h in bounding_rectangles]
     return digits
 
 
@@ -38,7 +38,7 @@ def extract_bubble_code(paper):
         numpy.ndarray: Extracted bubble code region.
     """
     height, width = paper.shape[:2]
-    return paper[:height // 3 + 10, :width // 2 + 40]
+    return paper[: height // 3 + 10, : width // 2 + 40]
 
 
 # Function to extract the student's code region
@@ -94,7 +94,7 @@ def crop_code(code):
     contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     largest_contour = max(contours, key=cv2.contourArea)
     x, y, w, h = cv2.boundingRect(largest_contour)
-    return code[y:y + h, x:x + w]
+    return code[y : y + h, x : x + w]
 
 
 # Function to extract and process the student's bubble answers
@@ -116,7 +116,9 @@ def get_student_bubble_code(paper):
     eroded_image = cv2.erode(negative_image, np.ones((7, 7), np.uint8), iterations=1)
 
     # Extract bubble contours
-    contours, _ = cv2.findContours(negative_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    contours, _ = cv2.findContours(
+        negative_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
+    )
     bubble_contours = []
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
@@ -124,9 +126,9 @@ def get_student_bubble_code(paper):
         epsilon = 0.01 * cv2.arcLength(contour, True)
         approx = cv2.approxPolyDP(contour, epsilon, True)
         if (
-                0.5 <= aspect_ratio <= 1.5
-                and len(approx) >= 4
-                and 30 < cv2.contourArea(contour) < 1.5 * cv2.arcLength(contour, True)
+            0.5 <= aspect_ratio <= 1.5
+            and len(approx) >= 4
+            and 30 < cv2.contourArea(contour) < 1.5 * cv2.arcLength(contour, True)
         ):
             bubble_contours.append(contour)
 

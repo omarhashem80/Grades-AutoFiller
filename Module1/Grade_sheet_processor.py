@@ -2,7 +2,7 @@ import os
 import cv2
 import numpy as np
 import pytesseract
-from image_processor import ImageProcessor
+from .image_processor import *
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
@@ -407,7 +407,7 @@ class GradeSheetOCR:
 
         df = pd.DataFrame(rows)
 
-        excel_path = f"./outputs/{output_filename}.xlsx"
+        excel_path = f"{output_filename}.xlsx"
         df.to_excel(excel_path, index=False, engine="openpyxl")
 
         wb = Workbook()

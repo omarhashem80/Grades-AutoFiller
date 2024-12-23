@@ -349,7 +349,10 @@ class GradeSheetOCR:
         return combined_results
 
     def process_grade_sheet(
-        self, image_path, code_ocr_method="training", number_ocr_method="training"
+        self,
+        image_path,
+        code_ocr_method="training",
+        number_ocr_method="training",
     ):
         # Process the image
         corrected_image = self.image_processor.process_image(image_path)
@@ -384,7 +387,7 @@ class GradeSheetOCR:
     ):
 
         length = min(len(codes), len(names), len(english_names), len(values_list))
-
+        print(f"Processing Excel {output_filename}")
         rows = []
         for i in range(length):
 
@@ -404,7 +407,7 @@ class GradeSheetOCR:
 
         df = pd.DataFrame(rows)
 
-        excel_path = f"{output_filename}.xlsx"
+        excel_path = f"./outputs/{output_filename}.xlsx"
         df.to_excel(excel_path, index=False, engine="openpyxl")
 
         wb = Workbook()
@@ -439,3 +442,24 @@ class GradeSheetOCR:
         wb.save(excel_path)
         print(f"Excel file '{output_filename}' has been created successfully!")
         return output_filename
+
+
+if __name__ == "__main__":
+    app = GradeSheetOCR()
+    combinations = [("ocr", "ocr"), ("ocr", "training"), ("training", "ocr")]
+    for i in range(1, 16):
+        image = f"Module1/grade sheet/{i}.jpg"
+        # image = cv2.imread(path)
+        for j in range(3):
+            codes, arabic_names, english_names, values = app.process_grade_sheet(
+                image,
+                code_ocr_method=combinations[j][0],
+                number_ocr_method=combinations[j][1],
+            )
+            app.create_excel_file(
+                codes,
+                arabic_names,
+                english_names,
+                values,
+                output_filename=f"output_{i}_{'Y' if combinations[j][0] == 'ocr' else 'N'}_{'Y' if combinations[j][1] == 'ocr' else 'N'}",
+            )

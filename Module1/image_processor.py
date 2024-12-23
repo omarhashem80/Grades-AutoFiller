@@ -10,7 +10,7 @@ class ImageProcessor:
 
     def __init__(self, tesseract_path=r"/usr/bin/tesseract"):
         pytesseract.pytesseract.tesseract_cmd = tesseract_path
-        self.load_digit_model = joblib.load("module2/hog_digit_classifier_model.npy")
+        self.load_digit_model = joblib.load("Module1/svm_model_digits.joblib")
         self.load_symbol_model = joblib.load("Module1/svm_model_symbols.joblib")
 
     def read_image(self, image_path):
@@ -50,6 +50,19 @@ class ImageProcessor:
         )
         return features
 
+    def extract_hog_756_features(self, image, target_size=(32, 64)):
+        image = cv2.resize(image, dsize=target_size)
+        features = hog(
+            image,
+            orientations=9,
+            pixels_per_cell=(8, 8),
+            cells_per_block=(2, 2),
+            transform_sqrt=True,
+            block_norm="L2-Hys",
+            visualize=False,
+        )
+        return features
+
     def extract_hog_1764_features(self, image, target_size=(32, 32)):
         image = cv2.resize(image, dsize=target_size)
         window_size = target_size
@@ -66,7 +79,7 @@ class ImageProcessor:
         return h.flatten()
 
     def predict_digit(self, image):
-        hog_features = self.extract_hog_144_features(image)
+        hog_features = self.extract_hog_1764_features(image)
         hog_features = hog_features.reshape(1, -1)
         predicted_digit = self.load_digit_model.predict(hog_features)
         return predicted_digit[0]

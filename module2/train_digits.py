@@ -61,27 +61,16 @@ def predict_digit(image):
     model_path = "hog_digit_classifier_model.npy"
 
     # Load the pre-trained model
-    digit_classifier = joblib.load(model_path)
+    classifier = joblib.load(model_path)
 
-    # Preprocess the input image
     resized_image = cv2.resize(image, (28, 28))
+    # get the HOG descriptor for the test image
+    (hog_desc, hog_image) = hog(resized_image, orientations=9, pixels_per_cell=(8, 8),
+                                cells_per_block=(2, 2), transform_sqrt=True, block_norm='L2-Hys', visualize=True)
+    # prediction
+    pred = classifier.predict(hog_desc.reshape(1, -1))[0]
 
-    # Compute the HOG descriptor for the input image
-    hog_descriptor = hog(
-        resized_image,
-        orientations=9,
-        pixels_per_cell=(8, 8),
-        cells_per_block=(2, 2),
-        transform_sqrt=True,
-        block_norm='L2-Hys',
-        visualize=False
-    )
-
-    # Predict the label for the input image
-    predicted_label = digit_classifier.predict(hog_descriptor.reshape(1, -1))[0]
-
-    return predicted_label.title()
-
+    return pred.title()
 
 # Uncomment to train the model
 # train_digit_classifier()

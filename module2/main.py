@@ -1,16 +1,10 @@
-import cv2
-import numpy as np
-import os
 import pandas as pd
-from pape_extraction import *
-from bubble_sheet_correction import *
-from train_digits import *
 from code_extraction import *
 
 
 def fill_grades_in_sheet(student_code, student_grades):
     """
-    Fills the grades of a student into an Excel sheet.
+    Fills the grades with a student into an Excel sheet.
 
     If the Excel file exists, it appends the new student grades; otherwise, it creates a new file.
 
@@ -71,7 +65,7 @@ def process_image_and_grades(img, file):
 
     # Resize image for processing
     img = cv2.resize(img, (800, 1000))
-    paper = extract_paper_region(img)
+    paper = extract_paper(img)
 
     # Get student bubble code (Method 1)
     bubble_code = extract_bubble_code(paper)
@@ -86,7 +80,11 @@ def process_image_and_grades(img, file):
 
     # Get student answers
     answers_region = extract_answers_region(paper)
-    print(answers_region, model_answer)
+
+    # plt.imshow(answers_region, cmap='gray')
+    # plt.show()
+
+    print(model_answer)
     answers_img, answers, grades = get_student_answers(answers_region, model_answer)
 
     output_folder = f'outputs/{written_code_str}'

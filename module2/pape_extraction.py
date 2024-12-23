@@ -1,90 +1,117 @@
 import cv2
+import matplotlib
+matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
 import numpy as np
 
 
-def reorder_corners(corners):
+def arrange_corners(corners):
     """
-    Reorders the corners of a quadrilateral in a consistent order.
+    Rearrange the corners of a quadrilateral to a consistent order:
+    top-left, top-right, bottom-right, and bottom-left.
 
     Args:
-        corners (numpy.ndarray): A 4x2 array of corner points.
+        corners (ndarray): Array of shape (4, 2) representing the corner points.
 
     Returns:
-        numpy.ndarray: An array with the corners rearranged in the following order:
-                       top-left, top-right, bottom-right, bottom-left.
+        ndarray: Rearranged corner points in a consistent order.
     """
+    # Initialize the rectangle to store ordered corners
     ordered_corners = np.zeros((4, 2), dtype="float32")
-    corner_sums = corners.sum(axis=1)
-    corner_diffs = np.diff(corners, axis=1)
 
-    ordered_corners[0] = corners[np.argmin(corner_sums)]   # Top-left
-    ordered_corners[1] = corners[np.argmin(corner_diffs)] # Top-right
-    ordered_corners[2] = corners[np.argmax(corner_sums)]  # Bottom-right
-    ordered_corners[3] = corners[np.argmax(corner_diffs)] # Bottom-left
+    # Compute the sum and difference of the corner coordinates
+    total_sum = corners.sum(axis=1)  # Sum of x and y coordinates
+    difference = np.diff(corners, axis=1)  # Difference between x and y coordinates
+
+    # Assign corners based on specific properties
+    ordered_corners[0] = corners[np.argmin(total_sum)]  # Top-left has the smallest sum
+    ordered_corners[1] = corners[np.argmin(difference)]  # Top-right has the smallest difference
+    ordered_corners[2] = corners[np.argmax(total_sum)]  # Bottom-right has the largest sum
+    ordered_corners[3] = corners[np.argmax(difference)]  # Bottom-left has the largest difference
 
     return ordered_corners
 
 
-def apply_perspective_transform(image, points):
+def image_transform(image, points):
     """
-    Applies a perspective transform to an image using four corner points.
+    Perform a perspective transformation on the input image to a top-down view.
 
     Args:
-        image (numpy.ndarray): The input image.
-        points (numpy.ndarray): A 4x2 array of corner points.
+        image (ndarray): The input image.
+        points (ndarray): Array of corner points to define the transformation.
 
     Returns:
-        numpy.ndarray: The perspective-transformed image.
+        ndarray: The warped image with a top-down perspective.
     """
-    ordered_points = reorder_corners(points)
-    (top_left, top_right, bottom_right, bottom_left) = ordered_points
+    # Arrange the corner points in a consistent order
+    rect = arrange_corners(points)
+    (top_left, top_right, bottom_right, bottom_left) = rect
 
-    width_top = np.sqrt(((top_right[0] - top_left[0]) ** 2) + ((top_right[1] - top_left[1]) ** 2))
-    width_bottom = np.sqrt(((bottom_right[0] - bottom_left[0]) ** 2) + ((bottom_right[1] - bottom_left[1]) ** 2))
-    height_right = np.sqrt(((top_right[0] - bottom_right[0]) ** 2) + ((top_right[1] - bottom_right[1]) ** 2))
-    height_left = np.sqrt(((top_left[0] - bottom_left[0]) ** 2) + ((top_left[1] - bottom_left[1]) ** 2))
-
+    # Compute the width of the transformed image
+    width_top = np.linalg.norm(top_right - top_left)
+    width_bottom = np.linalg.norm(bottom_right - bottom_left)
     max_width = max(int(width_top), int(width_bottom))
-    max_height = max(int(height_right), int(height_left))
 
+    # Compute the height of the transformed image
+    height_left = np.linalg.norm(bottom_left - top_left)
+    height_right = np.linalg.norm(bottom_right - top_right)
+    max_height = max(int(height_left), int(height_right))
+
+    # Define the destination points for the transformed image
     destination_points = np.array([
         [0, 0],
         [max_width - 1, 0],
         [max_width - 1, max_height - 1],
         [0, max_height - 1]], dtype="float32")
 
-    perspective_matrix = cv2.getPerspectiveTransform(ordered_points, destination_points)
-    transformed_image = cv2.warpPerspective(image, perspective_matrix, (max_width, max_height))
+    # Compute the perspective transform matrix
+    transform_matrix = cv2.getPerspectiveTransform(rect, destination_points)
 
-    return transformed_image
+    # Apply the perspective transformation
+    warped_image = cv2.warpPerspective(image, transform_matrix, (max_width, max_height))
+
+    return warped_image
 
 
-def extract_paper_region(image):
+def extract_paper(image):
     """
-    Extracts the largest quadrilateral region resembling a paper sheet from an image.
+    Extract a rectangular region resembling a paper from the image using contour detection.
 
     Args:
-        image (numpy.ndarray): The input image.
+        image (ndarray): The input image.
 
     Returns:
-        numpy.ndarray: The extracted paper region as an image.
+        ndarray: The extracted paper region as a warped image.
     """
+    # Convert the image to grayscale
     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Apply adaptive thresholding to detect edges
     binary_image = cv2.adaptiveThreshold(
-        gray_image, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 2)
+        gray_image, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 2
+    )
+    # plt.imshow(binary_image, cmap='gray')
+    # plt.show()
+    # Find contours in the binary image
+    contours, _ = cv2.findContours(binary_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
-    contours, _ = cv2.findContours(
-        binary_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-
-    if len(contours) > 0:
+    # Proceed if at least one contour is found
+    if contours:
+        # Sort contours by area in descending order
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
-        image_area = image.shape[0] * image.shape[1]
+
+        # Calculate the minimum acceptable area for a valid paper region
+        min_area = 0.2 * (image.shape[0] * image.shape[1])
 
         for contour in contours:
+            # Approximate the contour to a polygon
             epsilon = 0.01 * cv2.arcLength(contour, True)
             approximated_contour = cv2.approxPolyDP(contour, epsilon, True)
 
-            if len(approximated_contour) == 4 and cv2.contourArea(contour) > 0.2 * image_area:
-                return apply_perspective_transform(image, approximated_contour.reshape(4, 2))
+            # Check if the contour has 4 points and is sufficiently large
+            if len(approximated_contour) == 4 and cv2.contourArea(contour) > min_area:
+                # Transform the detected paper region to a top-down view
+                paper_image = image_transform(image, approximated_contour.reshape(4, 2))
+                return paper_image
 
     return None

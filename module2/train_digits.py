@@ -1,5 +1,6 @@
 from sklearn.svm import LinearSVC
 from skimage.feature import hog
+from sklearn.metrics import accuracy_score
 import joblib
 import os
 import cv2
@@ -39,13 +40,37 @@ def train_digit_classifier():
             hog_features.append(hog_descriptor)
             digit_labels.append(digit_folder)
 
+    # Convert labels to numeric (as LinearSVC requires numeric labels)
+    digit_labels = [int(label) for label in digit_labels]
+
     # Train the Linear SVC model
-    print('Training the digit classifier...')
     digit_classifier = LinearSVC(random_state=42, tol=1e-5)
+    print('Training the digit classifier...')
     digit_classifier.fit(hog_features, digit_labels)
+    print('Done')
 
     # Save the trained model
-    joblib.dump(digit_classifier, "hog_digit_classifier_model.npy")
+    joblib.dump(digit_classifier, "hog_digit_classifier_model2.npy")
+
+    # Evaluate the classifier on the same dataset (training data)
+    evaluate_classifier(digit_classifier, hog_features, digit_labels)
+
+
+def evaluate_classifier(classifier, X, y):
+    """
+    Evaluates the classifier on a dataset and prints the accuracy.
+
+    Args:
+        classifier: The trained model.
+        X (list): Feature data.
+        y (list): True labels for the data.
+    """
+    # Predict on the dataset
+    y_pred = classifier.predict(X)
+
+    # Calculate accuracy
+    accuracy = accuracy_score(y, y_pred)
+    print(f'Accuracy on the dataset: {accuracy * 100:.2f}%')
 
 
 def predict_digit(image):
@@ -64,13 +89,13 @@ def predict_digit(image):
     classifier = joblib.load(model_path)
 
     resized_image = cv2.resize(image, (28, 28))
-    # get the HOG descriptor for the test image
+    # Get the HOG descriptor for the test image
     (hog_desc, hog_image) = hog(resized_image, orientations=9, pixels_per_cell=(8, 8),
                                 cells_per_block=(2, 2), transform_sqrt=True, block_norm='L2-Hys', visualize=True)
-    # prediction
+    # Prediction
     pred = classifier.predict(hog_desc.reshape(1, -1))[0]
 
-    return pred.title()
+    return str(pred)
 
 # Uncomment to train the model
 # train_digit_classifier()

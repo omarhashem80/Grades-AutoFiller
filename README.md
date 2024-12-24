@@ -51,9 +51,15 @@ Grades Auto-Filler is a cutting-edge project designed to revolutionize grading f
 
 ## 🔧 Setup and Usage
 1. **Dependencies:** Ensure you have the following installed:
-    - Python (latest version)
-    - Required libraries (`OCR`, `Image Processing`, etc.)
-    - Spreadsheet tools (e.g., Excel support library)
+   - Python 
+   - Required libraries (`OCR`, `Image Processing`, etc.)
+   - Install the required libraries with the following command:
+
+      ```bash
+      pip install -r requirements.txt
+      ```
+
+   - Spreadsheet tools (e.g., Excel support library)
 2. **Run the Program:**
     - Clone this repository.
     - Run the script for your chosen module.
@@ -80,3 +86,5 @@ This project is open-source and available under the [MIT License](LICENSE).
 For any queries or contributions, feel free to open an issue or submit a pull request.
 
 ---
+
+

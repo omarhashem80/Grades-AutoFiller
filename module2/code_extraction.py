@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 from bubble_sheet_correction import *
 from train_digits import *
 
@@ -28,25 +30,6 @@ def segment_id(code):
     return digits
 
 
-def extract_bubble_code(paper):
-    """
-    Extracts the bubble code area from the given paper image.
-
-    Parameters:
-        paper (numpy.ndarray): The scanned image of the paper.
-
-    Returns:
-        numpy.ndarray: The extracted segment containing the bubble code.
-    """
-    x, y = paper.shape[:2]
-    # Determine the region of interest
-    new_x = (x // 3) + 10
-    new_y = (y // 2) + 40
-    segment = paper[:new_x, :new_y]
-
-    return segment
-
-
 def extract_student_code(paper):
     """
     Extracts the student code area from the scanned paper image.
@@ -60,7 +43,7 @@ def extract_student_code(paper):
     # Convert to grayscale and apply adaptive thresholding
     gray_image = cv2.cvtColor(paper, cv2.COLOR_BGR2GRAY)
     threshold_binary_image = cv2.adaptiveThreshold(
-        gray_image, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 155, 10
+        gray_image, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 255, 15
     )
     contours, _ = cv2.findContours(threshold_binary_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
@@ -107,40 +90,40 @@ def crop_code(code):
     return cropped_image
 
 
-def get_student_bubble_code(paper):
+def preprocess_bubble_sheet(paper):
     """
-    Processes the scanned image of a bubble sheet and extracts student responses.
+    Preprocesses the bubble sheet image by converting it to grayscale, applying thresholding,
+    negative transformation, and erosion.
 
     Args:
         paper (numpy.ndarray): Image of the bubble sheet.
 
     Returns:
-        tuple: A tuple containing:
-            - contoured_paper (numpy.ndarray): The processed image with contours drawn around marked bubbles.
-            - student_answers (numpy.ndarray): Array of integers representing the answers for each question.
-              -1 indicates invalid/multiple answers for a question.
+        tuple: Eroded image, negative image, and the thresholded binary image.
     """
-    # Convert the image to grayscale
     gray_image = cv2.cvtColor(paper, cv2.COLOR_BGR2GRAY)
-
-    # Apply adaptive thresholding to binarize the image
     threshold_binary_image = cv2.adaptiveThreshold(
         gray_image, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 255, 15
     )
-
-    # Apply negative transformation to invert the colors
     negative_img = negative_transformation(threshold_binary_image)
-
-    # Erode the image to remove noise and highlight the bubbles
     eroded_image = cv2.erode(negative_img, np.ones((7, 7)), iterations=1)
+    return eroded_image, negative_img, threshold_binary_image
 
-    # Find all contours in the binarized image
+
+def filter_bubble_contours(negative_img):
+    """
+    Filters contours to identify valid bubbles based on their shape and area.
+
+    Args:
+        negative_img (numpy.ndarray): Negative transformed binary image.
+
+    Returns:
+        list: Filtered list of contours representing bubbles.
+    """
     all_contours, _ = cv2.findContours(negative_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-
     circles_contours = []
     areas_of_contours = []
 
-    # Filter contours to identify bubbles based on their shape and area
     for contour in all_contours:
         (x, y, w, h) = cv2.boundingRect(contour)
         aspect_ratio = w / h
@@ -155,82 +138,108 @@ def get_student_bubble_code(paper):
             circles_contours.append(contour)
             areas_of_contours.append(cv2.contourArea(contour))
 
-    # Filter bubbles by their area to retain only valid bubbles
     median_circle_area = np.median(areas_of_contours)
-    circles_contours_temp = []
-    for i, area in enumerate(areas_of_contours):
-        if abs(area - median_circle_area) <= median_circle_area * 0.1:
-            circles_contours_temp.append(circles_contours[i])
-    circles_contours = circles_contours_temp
+    filtered_contours = [
+        circles_contours[i] for i, area in enumerate(areas_of_contours)
+        if abs(area - median_circle_area) <= median_circle_area * 0.1
+    ]
+    return filtered_contours
 
-    # Copy the original paper to draw contours later
-    contoured_paper = paper.copy()
 
-    # Sort the contours top-to-bottom
-    sorted_contours, _ = imcnts.sort_contours(circles_contours, method='top-to-bottom')
+def calculate_row_and_columns(circles_contours, circle_width):
+    """
+    Calculates the number of questions per row and answers per question based on the first row of bubbles.
 
-    # Identify the width of the first bubble
-    (_, __, circleWidth, ___) = cv2.boundingRect(circles_contours[0])
+    Args:
+        circles_contours (list): List of bubble contours.
+        circle_width (int): Width of a single bubble.
 
+    Returns:
+        tuple: Number of questions per row and answers per question.
+    """
     # Analyze the first row of bubbles
-    (x_prev, y_prev, _, _) = cv2.boundingRect(sorted_contours[0])
+    (x_prev, y_prev, _, _) = cv2.boundingRect(circles_contours[0])
     first_row = [x_prev]
-    for contour in sorted_contours[1:]:
+    for contour in circles_contours[1:]:
         (x, y, _, _) = cv2.boundingRect(contour)
         if abs(y - y_prev) > 3:
             break
         first_row.append(x)
     first_row.sort()
 
-    # Determine the number of questions per row and answers per question
     questions_number_per_row = 1
-    circles_number = len(first_row)
-    for i in range(1, circles_number):
-        if first_row[i] - first_row[i - 1] > 2.5 * circleWidth:
+    for i in range(1, len(first_row)):
+        if first_row[i] - first_row[i - 1] > 2.5 * circle_width:
             questions_number_per_row += 1
-    answers_number_per_question = circles_number // questions_number_per_row
-    number_of_questions = len(circles_contours) // answers_number_per_question
+    answers_number_per_question = len(first_row) // questions_number_per_row
+    return questions_number_per_row, answers_number_per_question
 
-    # Initialize arrays to store student answers and chosen contours
+
+def detect_marked_answers(sorted_contours, eroded_image, number_of_questions, circle_width):
+    """
+    Detects marked answers for each question based on bubble selections.
+
+    Args:
+        sorted_contours (list): Sorted list of contours.
+        eroded_image (numpy.ndarray): Eroded image for analyzing marked bubbles.
+        number_of_questions (int): Total number of questions.
+        circle_width (int): Width of a single bubble.
+
+    Returns:
+        tuple: Student answers array and chosen contours.
+    """
     student_answers = np.zeros(number_of_questions, dtype=int)
     chosen_contours = [None] * number_of_questions
     student_answers_validate = np.zeros(number_of_questions, dtype=int)
 
-    # Iterate through rows of bubbles to detect marked answers
     curr_row = 0
-    x_list = [[x_prev, sorted_contours[0]]]
-    for contour in sorted_contours[1:]:
-        (x, y, _, _) = cv2.boundingRect(contour)
+    x_list = []
+    (x_prev, y_prev, _, _) = cv2.boundingRect(sorted_contours[0])
 
-        # If the bubble is in a new row, process the current row
+    for contour in sorted_contours:
+        (x, y, _, _) = cv2.boundingRect(contour)
         if abs(y - y_prev) > 3:
-            x_list.sort(key=lambda pair: pair[0])
-            question_per_row = 1
-            answer = 1
-            question_num = curr_row
-            for i in range(len(x_list)):
-                if (i - 1 >= 0) & ((x_list[i][0] - x_list[i - 1][0]) > (2.5 * circleWidth)):
-                    question_num = curr_row + question_per_row
-                    question_per_row += 1
-                    answer = 1
-                if is_choice_marked(x_list[i][1], eroded_image) == 1:
-                    student_answers[question_num] = answer
-                    chosen_contours[question_num] = x_list[i][1]
-                    student_answers_validate[question_num] += 1
-                answer += 1
+            process_row(x_list, eroded_image, student_answers, chosen_contours, student_answers_validate, curr_row,
+                        circle_width)
             x_list.clear()
             curr_row += 1
 
-        x_list.append([x, contour])
+        x_list.append((x, contour))
         y_prev = y
 
-    # Process the last row
+    process_row(x_list, eroded_image, student_answers, chosen_contours, student_answers_validate, curr_row,
+                circle_width)
+
+    for i, validate_count in enumerate(student_answers_validate):
+        if validate_count != 1:
+            student_answers[i] = -1
+        else:
+            student_answers[i] -= 1
+
+    return student_answers, chosen_contours
+
+
+def process_row(x_list, eroded_image, student_answers, chosen_contours, student_answers_validate, curr_row,
+                circle_width):
+    """
+    Processes a single row of bubbles to determine marked answers.
+
+    Args:
+        x_list (list): List of x-coordinates and contours for the current row.
+        eroded_image (numpy.ndarray): Eroded image for analyzing marked bubbles.
+        student_answers (numpy.ndarray): Array to store student answers.
+        chosen_contours (list): List of chosen contours for each question.
+        student_answers_validate (numpy.ndarray): Validation array for answers.
+        curr_row (int): Current row number.
+        circle_width (int): Width of a single bubble.
+    """
     x_list.sort(key=lambda pair: pair[0])
     question_per_row = 1
     answer = 1
     question_num = curr_row
+
     for i in range(len(x_list)):
-        if (i - 1 >= 0) & ((x_list[i][0] - x_list[i - 1][0]) > (2.5 * circleWidth)):
+        if i > 0 and (x_list[i][0] - x_list[i - 1][0]) > 2.5 * circle_width:
             question_num = curr_row + question_per_row
             question_per_row += 1
             answer = 1
@@ -239,17 +248,40 @@ def get_student_bubble_code(paper):
             chosen_contours[question_num] = x_list[i][1]
             student_answers_validate[question_num] += 1
         answer += 1
-    x_list.clear()
 
-    # Validate the answers to detect multiple or no markings
-    for i in range(len(student_answers_validate)):
-        if student_answers_validate[i] != 1:
-            student_answers[i] = -1
-        else:
-            student_answers[i] -= 1
 
-    # Draw contours around marked answers
+def get_student_bubble_code(paper):
+    """
+    Main function to process the scanned image of a bubble sheet and extract student responses.
+
+    Args:
+        paper (numpy.ndarray): Image of the bubble sheet.
+
+    Returns:
+        tuple: Contoured paper image and array of student answers.
+    """
+    eroded_image, negative_img, _ = preprocess_bubble_sheet(paper)
+
+    plt.imshow(eroded_image, cmap='gray')
+    plt.show()
+    circles_contours = filter_bubble_contours(negative_img)
+    contoured_paper = paper.copy()
+
+    sorted_contours, _ = imcnts.sort_contours(circles_contours, method='top-to-bottom')
+
+    # Copy the input paper for later visualization
+    contoured_paper = paper.copy()
+    cv2.drawContours(contoured_paper, circles_contours, -1, (0, 0, 255), 2)
+
+    (_, __, circle_width, ___) = cv2.boundingRect(circles_contours[0])
+
+    questions_per_row, answers_per_question = calculate_row_and_columns(circles_contours, circle_width)
+    number_of_questions = len(circles_contours) // answers_per_question
+
+    student_answers, chosen_contours = detect_marked_answers(sorted_contours, eroded_image, number_of_questions,
+                                                             circle_width)
     cv2.drawContours(contoured_paper, chosen_contours, -1, (255, 0, 0), 2)
+
     return contoured_paper, student_answers
 
 
@@ -275,4 +307,3 @@ def get_code_prediction(digits):
         arr.append(predict_digit(resized_image))
 
     return arr
-

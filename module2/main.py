@@ -1,6 +1,6 @@
-import matplotlib.pyplot as plt
 import pandas as pd
 from code_extraction import *
+from utilities import extract_answers_region, extract_bubble_code
 
 
 def fill_grades_in_sheet(student_code, student_grades):
@@ -119,4 +119,3 @@ def process_image_and_grades(img, file):
 
     # Record the grades in the Excel sheet
     fill_grades_in_sheet(written_code_str, grades)
-

@@ -17,6 +17,7 @@ from module2.code_extraction import (
     segment_id,
     get_code_prediction,
 )
+import pkg_resources
 
 
 class GradiosApp:

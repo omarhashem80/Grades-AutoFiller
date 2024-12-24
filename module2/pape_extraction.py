@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import matplotlib
+
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 
@@ -90,28 +91,32 @@ def extract_paper(image):
     binary_image = cv2.adaptiveThreshold(
         gray_image, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 2
     )
-    # plt.imshow(binary_image, cmap='gray')
-    # plt.show()
+
+    plt.imshow(binary_image, cmap='gray')
+    plt.show()
+
     # Find contours in the binary image
     contours, _ = cv2.findContours(binary_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
-    # Proceed if at least one contour is found
-    if contours:
+    # Proceed if at least two contours are found
+    if contours and len(contours) > 1:
         # Sort contours by area in descending order
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
+
+        # Get the second-largest contour
+        second_largest_contour = contours[1]
 
         # Calculate the minimum acceptable area for a valid paper region
         min_area = 0.2 * (image.shape[0] * image.shape[1])
 
-        for contour in contours:
-            # Approximate the contour to a polygon
-            epsilon = 0.01 * cv2.arcLength(contour, True)
-            approximated_contour = cv2.approxPolyDP(contour, epsilon, True)
+        # Approximate the second-largest contour to a polygon
+        epsilon = 0.01 * cv2.arcLength(second_largest_contour, True)
+        approximated_contour = cv2.approxPolyDP(second_largest_contour, epsilon, True)
 
-            # Check if the contour has 4 points and is sufficiently large
-            if len(approximated_contour) == 4 and cv2.contourArea(contour) > min_area:
-                # Transform the detected paper region to a top-down view
-                paper_image = image_transform(image, approximated_contour.reshape(4, 2))
-                return paper_image
+        # Check if the contour has 4 points and is sufficiently large
+        if len(approximated_contour) == 4 and cv2.contourArea(second_largest_contour) > min_area:
+            # Transform the detected paper region to a top-down view
+            paper_image = image_transform(image, approximated_contour.reshape(4, 2))
+            return paper_image
 
     return None

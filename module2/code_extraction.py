@@ -180,3 +180,4 @@ def get_code_prediction(digits):
         resized_image = cv2.resize(eroded_image, (28, 28))
         arr.append(predict_digit(resized_image))
     return arr
+

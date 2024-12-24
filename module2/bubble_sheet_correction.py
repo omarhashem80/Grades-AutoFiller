@@ -140,7 +140,8 @@ def get_student_answers(paper, model_answer):
 
     # Calculate the number of answers per question and the total number of questions
     answers_number_per_question = circles_number // questions_number_per_row
-    number_of_questions = len(circles_contours) // answers_number_per_question
+    # number_of_questions = len(circles_contours) // answers_number_per_question   # change here
+    number_of_questions = len(model_answer)
 
     # Initialize arrays to store student answers, contours, and validation results
     student_answers = np.zeros(number_of_questions, dtype=int)
@@ -202,8 +203,10 @@ def get_student_answers(paper, model_answer):
     output_paper = paper.copy()
     grades = np.zeros(number_of_questions, dtype=int)
 
+    print(len(student_answers_validate), len(student_answers), len(model_answer))
     # Compare student's answers with the model answers and mark them
-    for i in range(len(student_answers_validate)):
+    for i in range(len(model_answer)):
+        print(i)
         if student_answers_validate[i] != 1:
             student_answers[i] = 0
             grades[i] = 0

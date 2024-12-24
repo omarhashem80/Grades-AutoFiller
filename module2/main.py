@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import pandas as pd
 from code_extraction import *
 
@@ -66,10 +67,17 @@ def process_image_and_grades(img, file):
     # Resize image for processing
     img = cv2.resize(img, (800, 1000))
     paper = extract_paper(img)
+    print('shape', paper.shape)
+    plt.imshow(paper)
+    plt.show()
 
     # Get student bubble code (Method 1)
     bubble_code = extract_bubble_code(paper)
     student_bubble_code_img, student_bubble_code = get_student_bubble_code(bubble_code)
+
+    print('shape', student_bubble_code_img.shape)
+    plt.imshow(student_bubble_code_img)
+    plt.show()
 
     # Get student written code (Method 2)
     code = extract_student_code(paper)
@@ -81,11 +89,19 @@ def process_image_and_grades(img, file):
     # Get student answers
     answers_region = extract_answers_region(paper)
 
+    print('shape', answers_region.shape)
+    plt.imshow(answers_region)
+    plt.show()
+
     # plt.imshow(answers_region, cmap='gray')
     # plt.show()
 
     print(model_answer)
     answers_img, answers, grades = get_student_answers(answers_region, model_answer)
+
+    print('shape', answers_img.shape)
+    plt.imshow(answers_img)
+    plt.show()
 
     output_folder = f'outputs/{written_code_str}'
     if not os.path.exists(output_folder):
@@ -103,3 +119,4 @@ def process_image_and_grades(img, file):
 
     # Record the grades in the Excel sheet
     fill_grades_in_sheet(written_code_str, grades)
+

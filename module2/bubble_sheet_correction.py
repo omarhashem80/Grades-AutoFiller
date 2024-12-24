@@ -15,11 +15,12 @@ def negative_transformation(image):
     return 255 - image
 
 
-def is_choice_marked(bubble_contour, eroded_image):
+def is_choice_marked(bubble_contour, eroded_image, count_threshold=10):
     """
     Determines whether a bubble is filled based on the sum of white pixels in its region.
 
     Args:
+        count_threshold (int): threshold for shaded pixel.
         bubble_contour (numpy.ndarray): Contour of the bubble.
         eroded_image (numpy.ndarray): Preprocessed eroded binary image.
 
@@ -29,7 +30,8 @@ def is_choice_marked(bubble_contour, eroded_image):
     x, y, w, h = cv2.boundingRect(bubble_contour)
     bubble_region = eroded_image[y:y + h, x:x + w]
     white_pixel_count = np.sum(bubble_region == 255)
-    return white_pixel_count >= 10
+    print('choice', bubble_region.shape, white_pixel_count)
+    return white_pixel_count >= count_threshold
 
 
 def extract_answers_region(paper_image):
@@ -71,8 +73,16 @@ def get_student_answers(paper, model_answer):
     # Apply a negative transformation to the thresholded image
     negative_img = negative_transformation(threshold_binary_image)
 
+    # print('shape', negative_img.shape)
+    # plt.imshow(negative_img, cmap='gray')
+    # plt.show()
+
     # Erode the image to reduce noise
     eroded_image = cv2.erode(negative_img, np.ones((6, 6)), iterations=1)
+
+    # print('shape', eroded_image.shape)
+    # plt.imshow(eroded_image, cmap='gray')
+    # plt.show()
 
     # Find all external contours in the negative image
     all_contours, _ = cv2.findContours(negative_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
@@ -109,6 +119,10 @@ def get_student_answers(paper, model_answer):
     contoured_paper = paper.copy()
     cv2.drawContours(contoured_paper, circles_contours, -1, (0, 0, 255), 2)
 
+    print('shape', contoured_paper.shape)
+    plt.imshow(contoured_paper, cmap='gray')
+    plt.show()
+
     # Sort the contours from top to bottom to process them row by row
     sorted_contours, _ = imcnts.sort_contours(circles_contours, method='top-to-bottom')
 
@@ -131,16 +145,6 @@ def get_student_answers(paper, model_answer):
     # Sort the first row by the x-coordinate
     first_row.sort()
 
-    # Calculate the number of questions per row based on the distance between circles
-    questions_number_per_row = 1
-    circles_number = len(first_row)
-    for i in range(1, circles_number):
-        if first_row[i] - first_row[i - 1] > 2.5 * circleWidth:
-            questions_number_per_row += 1
-
-    # Calculate the number of answers per question and the total number of questions
-    answers_number_per_question = circles_number // questions_number_per_row
-    # number_of_questions = len(circles_contours) // answers_number_per_question   # change here
     number_of_questions = len(model_answer)
 
     # Initialize arrays to store student answers, contours, and validation results
@@ -203,10 +207,8 @@ def get_student_answers(paper, model_answer):
     output_paper = paper.copy()
     grades = np.zeros(number_of_questions, dtype=int)
 
-    print(len(student_answers_validate), len(student_answers), len(model_answer))
     # Compare student's answers with the model answers and mark them
     for i in range(len(model_answer)):
-        print(i)
         if student_answers_validate[i] != 1:
             student_answers[i] = 0
             grades[i] = 0

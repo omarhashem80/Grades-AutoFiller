@@ -1,6 +1,6 @@
 import pandas as pd
-from code_extraction import *
-from utilities import extract_answers_region, extract_bubble_code
+from .code_extraction import *
+from .utilities import extract_answers_region, extract_bubble_code
 
 
 def fill_grades_in_sheet(student_code, student_grades):
@@ -14,22 +14,24 @@ def fill_grades_in_sheet(student_code, student_grades):
     - student_grades: A list of grades (answers) for each question.
     """
     main_relative_path = ""
-    file_name = main_relative_path + 'output.xlsx'
+    file_name = main_relative_path + "output.xlsx"
 
     # Check if the file exists
     if os.path.isfile(file_name):
         existing_data = pd.read_excel(file_name)
 
-        new_data = {'Code': [student_code]}
-        new_data.update({f'Q{i + 1}': [answer] for i, answer in enumerate(student_grades)})
+        new_data = {"Code": [student_code]}
+        new_data.update(
+            {f"Q{i + 1}": [answer] for i, answer in enumerate(student_grades)}
+        )
         new_df = pd.DataFrame(new_data)
 
         combined_df = pd.concat([existing_data, new_df], ignore_index=True)
         combined_df.to_excel(file_name, index=False)
         print(f"Excel sheet '{file_name}' updated successfully.")
     else:
-        data = {'Code': [student_code]}
-        data.update({f'Q{i + 1}': [answer] for i, answer in enumerate(student_grades)})
+        data = {"Code": [student_code]}
+        data.update({f"Q{i + 1}": [answer] for i, answer in enumerate(student_grades)})
         df = pd.DataFrame(data)
 
         df.to_excel(file_name, index=False)
@@ -46,7 +48,7 @@ def read_answers_from_file(file_path):
     Returns:
     - A list of integer answers.
     """
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         answers = [int(line.strip()) for line in file]
 
     return answers
@@ -67,7 +69,7 @@ def process_image_and_grades(img, file):
     # Resize image for processing
     img = cv2.resize(img, (800, 1000))
     paper = extract_paper(img)
-    print('shape', paper.shape)
+    print("shape", paper.shape)
     plt.imshow(paper)
     plt.show()
 
@@ -75,7 +77,7 @@ def process_image_and_grades(img, file):
     bubble_code = extract_bubble_code(paper)
     student_bubble_code_img, student_bubble_code = get_student_bubble_code(bubble_code)
 
-    print('shape', student_bubble_code_img.shape)
+    print("shape", student_bubble_code_img.shape)
     plt.imshow(student_bubble_code_img)
     plt.show()
 
@@ -84,12 +86,12 @@ def process_image_and_grades(img, file):
     cropped_code = crop_code(code)
     digits = segment_id(cropped_code)
     written_code = get_code_prediction(digits)
-    written_code_str = ''.join(written_code)
+    written_code_str = "".join(written_code)
 
     # Get student answers
     answers_region = extract_answers_region(paper)
 
-    print('shape', answers_region.shape)
+    print("shape", answers_region.shape)
     plt.imshow(answers_region)
     plt.show()
 
@@ -99,18 +101,20 @@ def process_image_and_grades(img, file):
     print(model_answer)
     answers_img, answers, grades = get_student_answers(answers_region, model_answer)
 
-    print('shape', answers_img.shape)
+    print("shape", answers_img.shape)
     plt.imshow(answers_img)
     plt.show()
 
-    output_folder = f'outputs/{written_code_str}'
+    output_folder = f"outputs/{written_code_str}"
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
     # Save images in the student's folder
-    cv2.imwrite(os.path.join(output_folder, 'student_bubble_code.jpg'), student_bubble_code_img)
-    cv2.imwrite(os.path.join(output_folder, 'student_written_code.jpg'), cropped_code)
-    cv2.imwrite(os.path.join(output_folder, 'student_answers.jpg'), answers_img)
+    cv2.imwrite(
+        os.path.join(output_folder, "student_bubble_code.jpg"), student_bubble_code_img
+    )
+    cv2.imwrite(os.path.join(output_folder, "student_written_code.jpg"), cropped_code)
+    cv2.imwrite(os.path.join(output_folder, "student_answers.jpg"), answers_img)
 
     print("Student Bubble Code: ", student_bubble_code)
     print("Student Written Code: ", written_code)

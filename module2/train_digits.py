@@ -33,7 +33,7 @@ def train_digit_classifier():
                 pixels_per_cell=(8, 8),
                 cells_per_block=(2, 2),
                 transform_sqrt=True,
-                block_norm='L2-Hys'
+                block_norm="L2-Hys",
             )
 
             # Update feature list and labels
@@ -45,12 +45,12 @@ def train_digit_classifier():
 
     # Train the Linear SVC model
     digit_classifier = LinearSVC(random_state=42, tol=1e-5)
-    print('Training the digit classifier...')
+    print("Training the digit classifier...")
     digit_classifier.fit(hog_features, digit_labels)
-    print('Done')
+    print("Done")
 
     # Save the trained model
-    joblib.dump(digit_classifier, "hog_digit_classifier_model2.npy")
+    joblib.dump(digit_classifier, "module2/hog_digit_classifier_model.npy")
 
     # Evaluate the classifier on the same dataset (training data)
     evaluate_classifier(digit_classifier, hog_features, digit_labels)
@@ -70,7 +70,7 @@ def evaluate_classifier(classifier, X, y):
 
     # Calculate accuracy
     accuracy = accuracy_score(y, y_pred)
-    print(f'Accuracy on the dataset: {accuracy * 100:.2f}%')
+    print(f"Accuracy on the dataset: {accuracy * 100:.2f}%")
 
 
 def predict_digit(image):
@@ -83,19 +83,27 @@ def predict_digit(image):
     Returns:
         str: Predicted digit label as a string.
     """
-    model_path = "hog_digit_classifier_model.npy"
+    model_path = "module2/hog_digit_classifier_model.npy"
 
     # Load the pre-trained model
     classifier = joblib.load(model_path)
 
     resized_image = cv2.resize(image, (28, 28))
     # Get the HOG descriptor for the test image
-    (hog_desc, hog_image) = hog(resized_image, orientations=9, pixels_per_cell=(8, 8),
-                                cells_per_block=(2, 2), transform_sqrt=True, block_norm='L2-Hys', visualize=True)
+    (hog_desc, hog_image) = hog(
+        resized_image,
+        orientations=9,
+        pixels_per_cell=(8, 8),
+        cells_per_block=(2, 2),
+        transform_sqrt=True,
+        block_norm="L2-Hys",
+        visualize=True,
+    )
     # Prediction
     pred = classifier.predict(hog_desc.reshape(1, -1))[0]
 
     return str(pred)
+
 
 # Uncomment to train the model
 # train_digit_classifier()

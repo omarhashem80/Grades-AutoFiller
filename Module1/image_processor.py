@@ -37,32 +37,6 @@ class ImageProcessor:
         contours, _ = cv2.findContours(dilated_image, method, cv2.CHAIN_APPROX_SIMPLE)
         return contours
 
-    def extract_hog_144_features(self, image, target_size=(28, 28)):
-        image = cv2.resize(image, dsize=target_size)
-        features = hog(
-            image,
-            orientations=9,
-            pixels_per_cell=(8, 8),
-            cells_per_block=(2, 2),
-            transform_sqrt=True,
-            block_norm="L2-Hys",
-            visualize=False,
-        )
-        return features
-
-    def extract_hog_756_features(self, image, target_size=(32, 64)):
-        image = cv2.resize(image, dsize=target_size)
-        features = hog(
-            image,
-            orientations=9,
-            pixels_per_cell=(8, 8),
-            cells_per_block=(2, 2),
-            transform_sqrt=True,
-            block_norm="L2-Hys",
-            visualize=False,
-        )
-        return features
-
     def extract_hog_1764_features(self, image, target_size=(32, 32)):
         image = cv2.resize(image, dsize=target_size)
         window_size = target_size
